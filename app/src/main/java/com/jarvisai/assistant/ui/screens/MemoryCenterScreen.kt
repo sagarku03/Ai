@@ -1,0 +1,1001 @@
+package com.jarvisai.assistant.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.ui.theme.AlertCrimson
+import com.example.ui.theme.JarvisElectricBlue
+import com.example.ui.theme.JarvisElevatedSurface
+import com.example.ui.theme.JarvisGlassBorder
+import com.example.ui.theme.JarvisGlassSurface
+import com.example.ui.theme.JarvisNeonCyan
+import com.example.ui.theme.JarvisNeonGreen
+import com.example.ui.theme.JarvisTextMuted
+import com.example.ui.theme.JarvisTextPrimary
+import com.example.ui.theme.JarvisTextSecondary
+import com.example.ui.theme.JarvisViolet
+import com.example.ui.theme.JarvisVioletBright
+import com.example.ui.theme.StatusListeningEmerald
+import com.example.ui.theme.StatusThinkingAmber
+import com.jarvisai.assistant.data.local.MemoryEntity
+import com.jarvisai.assistant.model.AssistantStatus
+import com.jarvisai.assistant.model.MemoryCategory
+import com.jarvisai.assistant.model.UserSettings
+import com.jarvisai.assistant.ui.components.JarvisAIOrb
+import com.jarvisai.assistant.ui.components.JarvisGlassPanel
+import com.jarvisai.assistant.ui.components.JarvisGradientButton
+import com.jarvisai.assistant.ui.components.JarvisModernDialog
+import com.jarvisai.assistant.ui.components.JarvisPremiumTopBar
+import com.jarvisai.assistant.ui.components.JarvisSearchBar
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun MemoryCenterScreen(
+    settings: UserSettings,
+    status: AssistantStatus,
+    memories: List<MemoryEntity>,
+    totalMemoriesCount: Int,
+    searchQuery: String,
+    selectedCategory: MemoryCategory?,
+    onBack: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onSelectCategory: (MemoryCategory?) -> Unit,
+    onToggleMemoryEnabled: (Boolean) -> Unit,
+    onSaveMemory: (title: String, content: String, category: MemoryCategory, tags: String, isPinned: Boolean) -> Unit,
+    onUpdateMemory: (MemoryEntity) -> Unit,
+    onTogglePinMemory: (MemoryEntity) -> Unit,
+    onDeleteMemory: (Long) -> Unit,
+    onClearAllMemories: () -> Unit
+) {
+    var showAddOrEditDialog by remember { mutableStateOf(false) }
+    var editingMemory by remember { mutableStateOf<MemoryEntity?>(null) }
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
+
+    val pinnedCount = remember(memories) { memories.count { it.isPinned } }
+
+    Scaffold(
+        containerColor = Color.Transparent,
+        topBar = {
+            JarvisPremiumTopBar(
+                title = "Memory Vault",
+                subtitle = "$totalMemoriesCount Saved • $pinnedCount Pinned • ${if (settings.memoryEnabled) "Sync Active" else "Paused"}",
+                status = status,
+                onBackClick = onBack
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    editingMemory = null
+                    showAddOrEditDialog = true
+                },
+                containerColor = JarvisViolet,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(999.dp),
+                modifier = Modifier
+                    .padding(bottom = 84.dp)
+                    .testTag("fab_add_memory")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Memory"
+                    )
+                    Text(
+                        text = "Create",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 1. IMAGE 1 ("POLY ULTIMATE" & "POLY PREMIUM") DUAL RICH GRADIENT CARDS ROW
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Left Card: Purple-Pink Mesh Gradient Card ("Poly Ultimate" reference)
+                Box(
+                    modifier = Modifier
+                        .weight(1.15f)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF321B54),
+                                    Color(0xFF1E173A),
+                                    Color(0xFF14182B)
+                                )
+                            )
+                        )
+                        .border(
+                            1.dp,
+                            Brush.horizontalGradient(
+                                listOf(Color(0xFFC084FC).copy(alpha = 0.65f), Color(0xFFF472B6).copy(alpha = 0.45f))
+                            ),
+                            RoundedCornerShape(22.dp)
+                        )
+                        .padding(16.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.WorkspacePremium,
+                                contentDescription = null,
+                                tint = Color(0xFFC084FC),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Neural Ultimate",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = Color(0xFFF5D0FE),
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Text(
+                            text = "Permanent Memory + Auto Context Recall",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = JarvisTextSecondary,
+                            fontSize = 11.sp,
+                            minLines = 2,
+                            maxLines = 2
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Pastel Purple-Pink Pill Badge
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0xFFC084FC), Color(0xFFF472B6))
+                                        )
+                                    )
+                                    .clickable { onToggleMemoryEnabled(!settings.memoryEnabled) }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = if (settings.memoryEnabled) "Active" else "Enable",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF14091E),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+
+                            Switch(
+                                checked = settings.memoryEnabled,
+                                onCheckedChange = onToggleMemoryEnabled,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFFC084FC),
+                                    uncheckedThumbColor = JarvisTextMuted,
+                                    uncheckedTrackColor = JarvisGlassSurface
+                                ),
+                                modifier = Modifier.testTag("switch_memory_center_enabled")
+                            )
+                        }
+                    }
+                }
+
+                // Right Card: Warm Gold-Amber Dark Card ("Poly Premium" reference)
+                Box(
+                    modifier = Modifier
+                        .weight(0.85f)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF2D2414),
+                                    Color(0xFF1B1812),
+                                    Color(0xFF13151E)
+                                )
+                            )
+                        )
+                        .border(
+                            1.dp,
+                            Color(0xFFFBBF24).copy(alpha = 0.45f),
+                            RoundedCornerShape(22.dp)
+                        )
+                        .padding(16.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = Color(0xFFFBBF24),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Vault Stats",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = Color(0xFFFDE68A),
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1
+                            )
+                        }
+
+                        Text(
+                            text = "$totalMemoriesCount Records\n$pinnedCount Pinned",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = JarvisTextSecondary,
+                            fontSize = 11.sp,
+                            minLines = 2,
+                            maxLines = 2
+                        )
+
+                        if (totalMemoriesCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0xFFFBBF24), Color(0xFFD97706))
+                                        )
+                                    )
+                                    .clickable { showClearConfirmDialog = true }
+                                    .padding(horizontal = 14.dp, vertical = 7.dp)
+                                    .testTag("btn_clear_all_memories")
+                            ) {
+                                Text(
+                                    text = "Purge All",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF1A1103),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(Color(0xFF2B2418))
+                                    .padding(horizontal = 14.dp, vertical = 7.dp)
+                            ) {
+                                Text(
+                                    text = "Clean Vault",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFFFDE68A),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 2. RECESSED PILL SEARCH BAR
+            JarvisSearchBar(
+                query = searchQuery,
+                onQueryChange = onSearchQueryChange,
+                placeholder = "Search memories by title, content, or #tags...",
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "memory_search_input"
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 3. IMAGE 1 GLOWING UNDERLINE TAB BAR ("Characters | Fiction | Gallery | Collection")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                UnderlineCategoryTab(
+                    label = "All",
+                    selected = selectedCategory == null,
+                    accentColor = JarvisVioletBright,
+                    onClick = { onSelectCategory(null) },
+                    testTag = "memory_cat_all"
+                )
+                MemoryCategory.entries.forEach { cat ->
+                    UnderlineCategoryTab(
+                        label = cat.label,
+                        selected = selectedCategory == cat,
+                        accentColor = categoryAccentColor(cat),
+                        onClick = {
+                            onSelectCategory(if (selectedCategory == cat) null else cat)
+                        },
+                        testTag = "memory_cat_${cat.name.lowercase()}"
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 4. IMAGE 1 "ISEKAI / CREATE" FEATURED BANNER ROW
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xFF131724))
+                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(JarvisViolet.copy(alpha = 0.35f), Color(0xFFEC4899).copy(alpha = 0.25f))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Memory,
+                            contentDescription = null,
+                            tint = Color(0xFFF472B6),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Neural Memory Forge",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            text = "Teach JARVIS facts, preferences & tasks",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = JarvisTextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                // Image 1 Outlined Violet Pill "Create" Button
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(JarvisViolet.copy(alpha = 0.14f))
+                        .border(1.dp, JarvisVioletBright, RoundedCornerShape(999.dp))
+                        .clickable {
+                            editingMemory = null
+                            showAddOrEditDialog = true
+                        }
+                        .padding(horizontal = 16.dp, vertical = 7.dp)
+                ) {
+                    Text(
+                        text = "Create",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = JarvisVioletBright,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 5. MEMORY LIST OR EMPTY STATE
+            if (memories.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    JarvisGlassPanel(
+                        modifier = Modifier.fillMaxWidth(),
+                        accentColor = JarvisViolet,
+                        contentPadding = PaddingValues(28.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            JarvisAIOrb(
+                                status = status,
+                                modifier = Modifier.size(92.dp)
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "No Memories in This Vault",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Store personal facts, preferences, or project notes for automatic recall during Live Voice and Text Chat.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = JarvisTextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 148.dp)
+                ) {
+                    items(memories, key = { it.id }) { memory ->
+                        MemoryItemCard(
+                            memory = memory,
+                            onTogglePin = { onTogglePinMemory(memory) },
+                            onEdit = {
+                                editingMemory = memory
+                                showAddOrEditDialog = true
+                            },
+                            onDelete = { onDeleteMemory(memory.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddOrEditDialog) {
+        MemoryEditorDialog(
+            initialMemory = editingMemory,
+            onDismiss = {
+                showAddOrEditDialog = false
+                editingMemory = null
+            },
+            onConfirm = { title, content, category, tags, isPinned ->
+                val existing = editingMemory
+                if (existing != null) {
+                    onUpdateMemory(
+                        existing.copy(
+                            title = title,
+                            content = content,
+                            category = category.name,
+                            tags = tags,
+                            isPinned = isPinned
+                        )
+                    )
+                } else {
+                    onSaveMemory(title, content, category, tags, isPinned)
+                }
+                showAddOrEditDialog = false
+                editingMemory = null
+            }
+        )
+    }
+
+    if (showClearConfirmDialog) {
+        JarvisModernDialog(
+            title = "Purge Neural Memory Vault?",
+            message = "Saari saved memories permanently delete ho jayengi. Ye action undo nahi ho sakta.",
+            confirmLabel = "Purge Vault",
+            isDestructive = true,
+            onConfirm = {
+                onClearAllMemories()
+                showClearConfirmDialog = false
+            },
+            onDismiss = { showClearConfirmDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun UnderlineCategoryTab(
+    label: String,
+    selected: Boolean,
+    accentColor: Color,
+    onClick: () -> Unit,
+    testTag: String
+) {
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
+            .testTag(testTag),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (selected) Color.White else JarvisTextMuted,
+            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium
+        )
+        Box(
+            modifier = Modifier
+                .width(if (selected) 22.dp else 0.dp)
+                .height(3.5.dp)
+                .clip(RoundedCornerShape(50))
+                .background(if (selected) accentColor else Color.Transparent)
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MemoryItemCard(
+    memory: MemoryEntity,
+    onTogglePin: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
+    val resolvedCategory = remember(memory.category) {
+        MemoryCategory.entries.find { it.name.equals(memory.category, ignoreCase = true) }
+            ?: MemoryCategory.GENERAL
+    }
+    val catColor = categoryAccentColor(resolvedCategory)
+
+    // Image 1 "Girl or boy [Public] / Luke [Private]" Collector Row Style
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF111524))
+            .border(
+                1.dp,
+                if (memory.isPinned) StatusThinkingAmber.copy(alpha = 0.5f)
+                else Color.White.copy(alpha = 0.08f),
+                RoundedCornerShape(20.dp)
+            )
+            .padding(14.dp)
+            .testTag("memory_card_${memory.id}"),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Left 54.dp Rounded-Square Avatar Thumbnail (Image 1 reference)
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            catColor.copy(alpha = 0.35f),
+                            JarvisViolet.copy(alpha = 0.22f)
+                        )
+                    )
+                )
+                .border(1.dp, catColor.copy(alpha = 0.5f), RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = memory.title.take(1).uppercase(),
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+
+        // Middle Content Column
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            // Title + Subtle Outlined Badge ("Public" / "Private" badge style from Image 1)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = memory.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF1B2136))
+                        .border(1.dp, catColor.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = resolvedCategory.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = catColor,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                if (memory.isPinned) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(StatusThinkingAmber.copy(alpha = 0.18f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Pinned",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = StatusThinkingAmber,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = memory.content,
+                style = MaterialTheme.typography.bodySmall,
+                color = JarvisTextSecondary,
+                lineHeight = 18.sp
+            )
+
+            // Bottom Metrics Row ("1 Collectors  36 Messages" style from Image 1)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = dateFormat.format(Date(memory.updatedAt)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = JarvisTextMuted,
+                    fontSize = 10.sp
+                )
+                if (memory.tags.isNotBlank()) {
+                    Text(
+                        text = memory.tags.split(",").joinToString(" ") { "#${it.trim()}" },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = JarvisVioletBright,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        // Right Action Column (Pin, Edit, Delete)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF1A2035))
+                    .clickable(onClick = onTogglePin),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (memory.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                    contentDescription = "Pin Memory",
+                    tint = if (memory.isPinned) StatusThinkingAmber else JarvisTextSecondary,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF1A2035))
+                    .clickable(onClick = onEdit)
+                    .testTag("edit_memory_${memory.id}"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit Memory",
+                    tint = JarvisNeonCyan,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AlertCrimson.copy(alpha = 0.14f))
+                    .clickable(onClick = onDelete)
+                    .testTag("delete_memory_${memory.id}"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete Memory",
+                    tint = AlertCrimson,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MemoryEditorDialog(
+    initialMemory: MemoryEntity?,
+    onDismiss: () -> Unit,
+    onConfirm: (title: String, content: String, category: MemoryCategory, tags: String, isPinned: Boolean) -> Unit
+) {
+    var title by remember { mutableStateOf(initialMemory?.title ?: "") }
+    var content by remember { mutableStateOf(initialMemory?.content ?: "") }
+    var category by remember {
+        mutableStateOf(
+            MemoryCategory.entries.find { it.name.equals(initialMemory?.category, ignoreCase = true) }
+                ?: MemoryCategory.PERSONAL
+        )
+    }
+    var tags by remember { mutableStateOf(initialMemory?.tags ?: "") }
+    var isPinned by remember { mutableStateOf(initialMemory?.isPinned ?: false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = JarvisElevatedSurface,
+        shape = RoundedCornerShape(26.dp),
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bookmark,
+                    contentDescription = null,
+                    tint = JarvisNeonCyan
+                )
+                Text(
+                    text = if (initialMemory != null) "Edit Neural Memory" else "Create Neural Memory",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = JarvisTextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Memory Title") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = JarvisNeonCyan,
+                        unfocusedBorderColor = JarvisGlassBorder
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("memory_dialog_title")
+                )
+
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    label = { Text("Memory Details / Fact") },
+                    minLines = 3,
+                    maxLines = 5,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = JarvisNeonCyan,
+                        unfocusedBorderColor = JarvisGlassBorder
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("memory_dialog_content")
+                )
+
+                Text(
+                    text = "SELECT CATEGORY",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = JarvisNeonCyan,
+                    fontWeight = FontWeight.Bold
+                )
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    MemoryCategory.entries.forEach { cat ->
+                        val isSelected = category == cat
+                        val accent = categoryAccentColor(cat)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) accent.copy(alpha = 0.22f) else JarvisGlassSurface)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) accent else JarvisGlassBorder,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable { category = cat }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = cat.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isSelected) accent else JarvisTextSecondary,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = tags,
+                    onValueChange = { tags = it },
+                    label = { Text("Tags (comma separated)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = JarvisNeonCyan,
+                        unfocusedBorderColor = JarvisGlassBorder
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("memory_dialog_tags")
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(JarvisGlassSurface)
+                        .clickable { isPinned = !isPinned }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Checkbox(
+                        checked = isPinned,
+                        onCheckedChange = { isPinned = it },
+                        colors = CheckboxDefaults.colors(checkedColor = StatusThinkingAmber)
+                    )
+                    Text(
+                        text = "Pin high-priority memory for instant AI recall",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = JarvisTextPrimary
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(
+                        if (title.isNotBlank() && content.isNotBlank()) {
+                            Brush.horizontalGradient(listOf(Color(0xFFC084FC), Color(0xFFF472B6)))
+                        } else {
+                            Brush.horizontalGradient(listOf(JarvisGlassSurface, JarvisGlassSurface))
+                        }
+                    )
+                    .clickable(enabled = title.isNotBlank() && content.isNotBlank()) {
+                        onConfirm(title, content, category, tags, isPinned)
+                    }
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+                    .testTag("memory_dialog_save_btn")
+            ) {
+                Text(
+                    text = "Save",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (title.isNotBlank() && content.isNotBlank()) Color(0xFF14091E) else JarvisTextMuted,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = "Cancel",
+                    color = JarvisTextSecondary
+                )
+            }
+        }
+    )
+}
+
+private fun categoryAccentColor(category: MemoryCategory): Color {
+    return when (category) {
+        MemoryCategory.PERSONAL -> JarvisNeonCyan
+        MemoryCategory.PREFERENCES -> StatusListeningEmerald
+        MemoryCategory.WORK -> JarvisElectricBlue
+        MemoryCategory.PROJECTS -> JarvisVioletBright
+        MemoryCategory.IMPORTANT -> StatusThinkingAmber
+        MemoryCategory.GENERAL -> JarvisNeonGreen
+    }
+}
